@@ -1,0 +1,154 @@
+// Define the base URL for the API
+// For local development: 'http://127.0.0.1:5001'
+// For production, it will be the Render URL, so we use a relative path.
+const API_URL = ''; 
+
+// --- Monitor Dashboard ---
+loadMonitorDashboard = (container, userData ) => {
+    const monitorTypeNames = {
+        social: 'رصد شبكات التواصل الاجتماعي',
+        web: 'رصد المواقع الإلكترونية',
+        tv: 'رصد القنوات التلفزيونية'
+    };
+
+    container.innerHTML = `
+        <div class="monitoring-form">
+            <h3>${monitorTypeNames[userData.type]}</h3>
+            <form id="monitoring-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="source-name">اسم المصدر/الوسيلة</label>
+                        <input type="text" id="source-name" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="monitoring-date">تاريخ الرصد</label>
+                        <input type="date" id="monitoring-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="monitoring-time">وقت الرصد</label>
+                        <input type="time" id="monitoring-time" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="monitoring-content">المحتوى المرصود</label>
+                    <textarea id="monitoring-content" required></textarea>
+                </div>
+                <button type="submit">حفظ البيانات</button>
+                <p id="save-success" style="color: green; font-weight: bold;"></p>
+                <p id="save-error" class="error-message"></p>
+            </form>
+        </div>
+    `;
+
+    // Set default date and time
+    const now = new Date();
+    document.getElementById('monitoring-date').value = now.toISOString().split('T')[0];
+    document.getElementById('monitoring-time').value = now.toTimeString().split(' ')[0].substring(0, 5);
+
+    // Handle form submission
+    const form = document.getElementById('monitoring-form');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const successMsg = document.getElementById('save-success');
+        const errorMsg = document.getElementById('save-error');
+        successMsg.textContent = '';
+        errorMsg.textContent = '';
+
+        const dataToSave = {
+            sourceType: userData.type,
+            sourceName: document.getElementById('source-name').value,
+            monitoringDate: document.getElementById('monitoring-date').value,
+            monitoringTime: document.getElementById('monitoring-time').value,
+            content: document.getElementById('monitoring-content').value,
+        };
+
+        try {
+            const response = await fetch(`${API_URL}/api/monitoring-data`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToSave)
+            });
+
+            if (!response.ok) {
+                throw new Error('فشل الاتصال بالخادم');
+            }
+
+            successMsg.textContent = 'تم حفظ البيانات بنجاح!';
+            form.reset();
+            // Reset date/time to current after successful save
+            const now = new Date();
+            document.getElementById('monitoring-date').value = now.toISOString().split('T')[0];
+            document.getElementById('monitoring-time').value = now.toTimeString().split(' ')[0].substring(0, 5);
+
+        } catch (error) {
+            errorMsg.textContent = 'حدث خطأ أثناء الحفظ. يرجى المحاولة مرة أخرى.';
+            console.error('Save error:', error);
+        }
+    });
+};
+
+// --- Analyst Dashboard ---
+loadAnalystDashboard = async (container) => {
+    container.innerHTML = `
+        <div class="analyst-dashboard">
+            <h3>لوحة تحكم المحلل</h3>
+            <div class="filters">
+                <input type="date" id="filter-date-start" placeholder="من تاريخ">
+                <input type="date" id="filter-date-end" placeholder="إلى تاريخ">
+                <select id="filter-source-type">
+                    <option value="">كل أنواع الرصد</option>
+                    <option value="social">شبكات اجتماعية</option>
+                    <option value="web">مواقع إلكترونية</option>
+                    <option value="tv">قنوات تلفزيونية</option>
+                </select>
+                <button id="filter-button">تطبيق الفلتر</button>
+            </div>
+            <div id="analyst-data-container">
+                <p>جاري تحميل البيانات...</p>
+            </div>
+        </div>
+    `;
+
+    const dataContainer = document.getElementById('analyst-data-container');
+
+    try {
+        const response = await fetch(`${API_URL}/api/monitoring-data`);
+        if (!response.ok) {
+            throw new Error('فشل جلب البيانات');
+        }
+        const data = await response.json();
+        renderMonitoringData(dataContainer, data);
+    } catch (error) {
+        dataContainer.innerHTML = '<p class="error-message">حدث خطأ أثناء تحميل البيانات.</p>';
+        console.error('Fetch error:', error);
+    }
+};
+
+function renderMonitoringData(container, data) {
+    if (data.length === 0) {
+        container.innerHTML = '<p>لا توجد بيانات مرصودة لعرضها.</p>';
+        return;
+    }
+
+    container.innerHTML = data.map(item => `
+        <div class="monitoring-item">
+            <div class="monitoring-item-header">
+                <span>${item.source_name} (${item.source_type})</span> - 
+                <span>${item.monitoring_date} في ${item.monitoring_time}</span>
+            </div>
+            <div class="monitoring-item-content">${item.content}</div>
+            <div class="analysis-section">
+                <div class="form-group">
+                    <label>التحليل</label>
+                    <textarea placeholder="أضف تحليلك هنا..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>التوصيات</label>
+                    <textarea placeholder="أضف توصياتك هنا..."></textarea>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}

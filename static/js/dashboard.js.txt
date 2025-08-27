@@ -1,0 +1,24 @@
+function initializeDashboard(userData) {
+    const dashboardContent = document.getElementById('dashboard-content');
+    const welcomeMessage = document.getElementById('welcome-message');
+
+    // Clear previous content
+    dashboardContent.innerHTML = '';
+
+    // Set welcome message
+    welcomeMessage.textContent = `أهلاً بك، ${userData.name}`;
+
+    // Load content based on user role
+    if (userData.role === 'monitor') {
+        loadMonitorDashboard(dashboardContent, userData);
+    } else if (userData.role === 'analyst') {
+        loadAnalystDashboard(dashboardContent);
+    } else if (userData.role === 'admin') {
+        dashboardContent.innerHTML = '<h3>لوحة تحكم مدير النظام</h3><p>سيتم إضافة وظائف مدير النظام هنا.</p>';
+    }
+}
+
+// These functions (loadMonitorDashboard, loadAnalystDashboard) will be defined in monitoring.js
+// We just declare them here to avoid "not defined" errors if dashboard.js loads first.
+let loadMonitorDashboard = (container, userData) => {};
+let loadAnalystDashboard = (container) => {};

@@ -1,0 +1,44 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const loginPage = document.getElementById('login-page');
+    const dashboardPage = document.getElementById('dashboard-page');
+    const logoutButton = document.getElementById('logout-button');
+
+    // --- Page Navigation ---
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active');
+        });
+        document.getElementById(pageId).classList.add('active');
+    }
+
+    // --- Check Login State ---
+    function checkLoginState() {
+        const user = sessionStorage.getItem('loggedInUser');
+        if (user) {
+            const userData = JSON.parse(user);
+            initializeDashboard(userData);
+            showPage('dashboard-page');
+        } else {
+            showPage('login-page');
+        }
+    }
+
+    // --- Logout ---
+    logoutButton.addEventListener('click', () => {
+        sessionStorage.removeItem('loggedInUser');
+        // Clear dashboard content to avoid showing old data on next login
+        const dashboardContent = document.getElementById('dashboard-content');
+        dashboardContent.innerHTML = '';
+        checkLoginState();
+    });
+
+    // --- Initial Load ---
+    // Expose functions to be called from other scripts
+    window.app = {
+        showPage,
+        checkLoginState
+    };
+
+    // First check when the app loads
+    checkLoginState();
+});

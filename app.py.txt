@@ -1,0 +1,85 @@
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+import sqlite3
+import os
+
+# --- Database Setup ---
+def init_db(app):
+    with app.app_context():
+        db_path = app.config['DATABASE']
+        if not os.path.exists(os.path.dirname(db_path)):
+            os.makedirs(os.path.dirname(db_path))
+        
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS monitoring_data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_type TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                monitoring_date TEXT NOT NULL,
+                monitoring_time TEXT NOT NULL,
+                content TEXT NOT NULL,
+                analysis TEXT,
+                recommendations TEXT
+            )
+        ''')
+        conn.commit()
+        conn.close()
+
+# --- Flask App Factory ---
+def create_app():
+    app = Flask(__name__, static_folder='static', static_url_path='')
+    
+    # Configuration
+    # Use /var/data for persistent storage on services like Render
+    data_dir = os.path.join('/var/data', 'instance') 
+    app.config['DATABASE'] = os.path.join(data_dir, 'monitoring.db')
+    app.config['SECRET_KEY'] = 'a_very_secret_key'
+    
+    # Initialize CORS
+    CORS(app)
+
+    # Initialize Database
+    init_db(app)
+
+    # --- API Routes ---
+    @app.route('/api/monitoring-data', methods=['POST'])
+    def add_monitoring_data():
+        data = request.json
+        conn = sqlite3.connect(app.config['DATABASE'])
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO monitoring_data (source_type, source_name, monitoring_date, monitoring_time, content) VALUES (?, ?, ?, ?, ?)",
+            (data['sourceType'], data['sourceName'], data['monitoringDate'], data['monitoringTime'], data['content'])
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "Data saved successfully"}), 201
+
+    @app.route('/api/monitoring-data', methods=['GET'])
+    def get_monitoring_data():
+        conn = sqlite3.connect(app.config['DATABASE'])
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM monitoring_data ORDER BY monitoring_date DESC, monitoring_time DESC")
+        rows = cursor.fetchall()
+        conn.close()
+        # Convert rows to list of dicts
+        data = [dict(row) for row in rows]
+        return jsonify(data)
+
+    # --- Serve Frontend ---
+    @app.route('/')
+    def serve_index():
+        return send_from_directory(app.static_folder, 'index.html')
+
+    @app.route('/<path:path>')
+    def serve_static(path):
+        return send_from_directory(app.static_folder, path)
+
+    return app
+
+if __name__ == '__main__':
+    app = create_app()
+    app.run(debug=True, port=5001)

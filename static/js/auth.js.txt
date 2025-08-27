@@ -1,0 +1,36 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+
+    // --- User Database ---
+    const users = {
+        'social': { password: '123', role: 'monitor', type: 'social', name: 'راصد الشبكات الاجتماعية' },
+        'web': { password: '123', role: 'monitor', type: 'web', name: 'راصد المواقع الإلكترونية' },
+        'tv': { password: '123', role: 'monitor', type: 'tv', name: 'راصد القنوات التلفزيونية' },
+        'analyst': { password: '123', role: 'analyst', type: 'analyst', name: 'محلل' },
+        'admin': { password: '123', role: 'admin', type: 'admin', name: 'مدير النظام' }
+    };
+
+    // --- Login Form Submission ---
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        loginError.textContent = '';
+
+        const user = users[username];
+
+        if (user && user.password === password) {
+            // Save user info to session storage
+            sessionStorage.setItem('loggedInUser', JSON.stringify({ username, ...user }));
+            
+            // Reset form
+            loginForm.reset();
+
+            // Navigate to dashboard
+            window.app.checkLoginState();
+        } else {
+            loginError.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
+        }
+    });
+});
