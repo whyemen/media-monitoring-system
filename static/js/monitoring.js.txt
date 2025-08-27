@@ -1,154 +1,98 @@
-// Define the base URL for the API
-// For local development: 'http://127.0.0.1:5001'
-// For production, it will be the Render URL, so we use a relative path.
-const API_URL = ''; 
-
-// --- Monitor Dashboard ---
-loadMonitorDashboard = (container, userData ) => {
-    const monitorTypeNames = {
-        social: 'رصد شبكات التواصل الاجتماعي',
-        web: 'رصد المواقع الإلكترونية',
-        tv: 'رصد القنوات التلفزيونية'
-    };
-
-    container.innerHTML = `
-        <div class="monitoring-form">
-            <h3>${monitorTypeNames[userData.type]}</h3>
-            <form id="monitoring-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="source-name">اسم المصدر/الوسيلة</label>
-                        <input type="text" id="source-name" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="monitoring-date">تاريخ الرصد</label>
-                        <input type="date" id="monitoring-date" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="monitoring-time">وقت الرصد</label>
-                        <input type="time" id="monitoring-time" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="monitoring-content">المحتوى المرصود</label>
-                    <textarea id="monitoring-content" required></textarea>
-                </div>
-                <button type="submit">حفظ البيانات</button>
-                <p id="save-success" style="color: green; font-weight: bold;"></p>
-                <p id="save-error" class="error-message"></p>
-            </form>
-        </div>
-    `;
-
-    // Set default date and time
-    const now = new Date();
-    document.getElementById('monitoring-date').value = now.toISOString().split('T')[0];
-    document.getElementById('monitoring-time').value = now.toTimeString().split(' ')[0].substring(0, 5);
-
-    // Handle form submission
-    const form = document.getElementById('monitoring-form');
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const successMsg = document.getElementById('save-success');
-        const errorMsg = document.getElementById('save-error');
-        successMsg.textContent = '';
-        errorMsg.textContent = '';
-
-        const dataToSave = {
-            sourceType: userData.type,
-            sourceName: document.getElementById('source-name').value,
-            monitoringDate: document.getElementById('monitoring-date').value,
-            monitoringTime: document.getElementById('monitoring-time').value,
-            content: document.getElementById('monitoring-content').value,
-        };
-
-        try {
-            const response = await fetch(`${API_URL}/api/monitoring-data`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dataToSave)
-            });
-
-            if (!response.ok) {
-                throw new Error('فشل الاتصال بالخادم');
-            }
-
-            successMsg.textContent = 'تم حفظ البيانات بنجاح!';
-            form.reset();
-            // Reset date/time to current after successful save
-            const now = new Date();
-            document.getElementById('monitoring-date').value = now.toISOString().split('T')[0];
-            document.getElementById('monitoring-time').value = now.toTimeString().split(' ')[0].substring(0, 5);
-
-        } catch (error) {
-            errorMsg.textContent = 'حدث خطأ أثناء الحفظ. يرجى المحاولة مرة أخرى.';
-            console.error('Save error:', error);
-        }
-    });
-};
-
-// --- Analyst Dashboard ---
-loadAnalystDashboard = async (container) => {
-    container.innerHTML = `
-        <div class="analyst-dashboard">
-            <h3>لوحة تحكم المحلل</h3>
-            <div class="filters">
-                <input type="date" id="filter-date-start" placeholder="من تاريخ">
-                <input type="date" id="filter-date-end" placeholder="إلى تاريخ">
-                <select id="filter-source-type">
-                    <option value="">كل أنواع الرصد</option>
+async function showMonitoringPage(role) {
+    const contentArea = document.getElementById('dashboard-content');
+    let html = '<h2>صفحة الرصد والتحليل</h2>';
+    if (role === 'monitor') {
+        html += `
+            <div class="form-container">
+                <h3>إضافة رصد جديد</h3>
+                <input type="text" id="entity" placeholder="الكيان">
+                <select id="monitoring-type">
                     <option value="social">شبكات اجتماعية</option>
-                    <option value="web">مواقع إلكترونية</option>
-                    <option value="tv">قنوات تلفزيونية</option>
+                    <option value="website">مواقع إلكترونية</option>
+                    <option value="channel">قنوات تلفزيونية</option>
                 </select>
-                <button id="filter-button">تطبيق الفلتر</button>
+                <input type="text" id="link" placeholder="الرابط">
+                <textarea id="content" placeholder="المحتوى"></textarea>
+                <input type="date" id="monitoring-date">
+                <button id="save-monitoring-btn">حفظ الرصد</button>
             </div>
-            <div id="analyst-data-container">
-                <p>جاري تحميل البيانات...</p>
-            </div>
-        </div>
-    `;
-
-    const dataContainer = document.getElementById('analyst-data-container');
-
-    try {
-        const response = await fetch(`${API_URL}/api/monitoring-data`);
-        if (!response.ok) {
-            throw new Error('فشل جلب البيانات');
-        }
-        const data = await response.json();
-        renderMonitoringData(dataContainer, data);
-    } catch (error) {
-        dataContainer.innerHTML = '<p class="error-message">حدث خطأ أثناء تحميل البيانات.</p>';
-        console.error('Fetch error:', error);
+        `;
     }
-};
+    html += '<div id="data-display-area"><h3>البيانات المرصودة</h3><div id="items-container"></div></div>';
+    contentArea.innerHTML = html;
+    if (role === 'monitor') {
+        document.getElementById('save-monitoring-btn').addEventListener('click', saveMonitoringData);
+    }
+    fetchAndDisplayData(role);
+}
 
-function renderMonitoringData(container, data) {
-    if (data.length === 0) {
-        container.innerHTML = '<p>لا توجد بيانات مرصودة لعرضها.</p>';
+async function saveMonitoringData() {
+    const newData = {
+        entity: document.getElementById('entity').value,
+        monitoring_type: document.getElementById('monitoring-type').value,
+        link: document.getElementById('link').value,
+        content: document.getElementById('content').value,
+        monitoring_date: document.getElementById('monitoring-date').value
+    };
+    const { error } = await supabase.from('monitoring_data').insert([newData]);
+    if (error) alert('فشل حفظ البيانات.');
+    else {
+        alert('تم حفظ البيانات بنجاح!');
+        fetchAndDisplayData('monitor');
+    }
+}
+
+async function fetchAndDisplayData(role) {
+    const itemsContainer = document.getElementById('items-container');
+    itemsContainer.innerHTML = '<p>جاري تحميل البيانات...</p>';
+    const { data: monitoringData, error: monitoringError } = await supabase.from('monitoring_data').select('*').order('created_at', { ascending: false });
+    if (monitoringError) {
+        itemsContainer.innerHTML = '<p>فشل تحميل البيانات.</p>';
         return;
     }
+    if (monitoringData.length === 0) {
+        itemsContainer.innerHTML = '<p>لا توجد بيانات لعرضها.</p>';
+        return;
+    }
+    const { data: analysisData, error: analysisError } = await supabase.from('analysis_data').select('*');
+    let html = '';
+    for (const item of monitoringData) {
+        const relatedAnalysis = analysisData ? analysisData.find(a => a.monitoring_data_id === item.id) : null;
+        html += `
+            <div class="data-item">
+                <p><strong>الكيان:</strong> ${item.entity}</p>
+                <p><strong>النوع:</strong> ${item.monitoring_type}</p>
+                <p><strong>التاريخ:</strong> ${item.monitoring_date}</p>
+                <p><strong>المحتوى:</strong> ${item.content.substring(0, 100)}...</p>
+                <div class="analysis-section" id="analysis-for-${item.id}">`;
+        if (role === 'analyst') {
+            if (relatedAnalysis) {
+                html += `<h4>التحليل والتوصيات (محفوظة)</h4><p><strong>التحليل:</strong> ${relatedAnalysis.analysis}</p><p><strong>التوصيات:</strong> ${relatedAnalysis.recommendations}</p>`;
+            } else {
+                html += `<h4>إضافة تحليل وتوصيات</h4><textarea id="analysis-text-${item.id}" placeholder="اكتب التحليل هنا"></textarea><textarea id="recommendations-text-${item.id}" placeholder="اكتب التوصيات هنا"></textarea><button onclick="saveAnalysisData(${item.id})">حفظ التحليل</button>`;
+            }
+        } else {
+            if (relatedAnalysis) {
+                html += `<h4>التحليل والتوصيات</h4><p><strong>التحليل:</strong> ${relatedAnalysis.analysis}</p><p><strong>التوصيات:</strong> ${relatedAnalysis.recommendations}</p>`;
+            } else {
+                html += '<p><em>لم يتم إضافة تحليل بعد.</em></p>';
+            }
+        }
+        html += `</div></div>`;
+    }
+    itemsContainer.innerHTML = html;
+}
 
-    container.innerHTML = data.map(item => `
-        <div class="monitoring-item">
-            <div class="monitoring-item-header">
-                <span>${item.source_name} (${item.source_type})</span> - 
-                <span>${item.monitoring_date} في ${item.monitoring_time}</span>
-            </div>
-            <div class="monitoring-item-content">${item.content}</div>
-            <div class="analysis-section">
-                <div class="form-group">
-                    <label>التحليل</label>
-                    <textarea placeholder="أضف تحليلك هنا..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>التوصيات</label>
-                    <textarea placeholder="أضف توصياتك هنا..."></textarea>
-                </div>
-            </div>
-        </div>
-    `).join('');
+async function saveAnalysisData(monitoringId) {
+    const newData = {
+        monitoring_data_id: monitoringId,
+        analysis: document.getElementById(`analysis-text-${monitoringId}`).value,
+        recommendations: document.getElementById(`recommendations-text-${monitoringId}`).value
+    };
+    const { error } = await supabase.from('analysis_data').insert([newData]);
+    if (error) alert('فشل حفظ التحليل.');
+    else {
+        alert('تم حفظ التحليل بنجاح!');
+        fetchAndDisplayData('analyst');
+    }
 }
